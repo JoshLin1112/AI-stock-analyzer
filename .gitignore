@@ -1,0 +1,39 @@
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ===== Virtual Env =====
+.venv/
+venv/
+env/
+
+# ===== Environment Variables =====
+.env
+.env.*
+
+# ===== Logs =====
+*.log
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
+# ===== Node / Frontend =====
+node_modules/
+dist/
+build/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE =====
+.vscode/
+.idea/
+
+# ===== LLM / ML =====
+models/
+checkpoints/
+wandb/
+mlruns/
