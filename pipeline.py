@@ -89,7 +89,7 @@ class NewsPipeline:
         company_stats.sort_values('avg_weighted_score', ascending=False).to_csv(
             Config.STATS_OUTPUT_PATH, index=False, encoding='utf-8-sig'
         )
-        logger.info(f"Analysis text saved to {Config.STATS_OUTPUT_PATH}")
+        logger.info(f"資料已保存至 {Config.STATS_OUTPUT_PATH}")
         
         # Update Time Series
         self.time_series_manager.update_daily_scores(
@@ -116,7 +116,7 @@ class NewsPipeline:
             )
             
             if email_success:
-                logger.info("Email sent successfully!")
+                pass
             else:
                 logger.warning("Email failed to send.")
         else:

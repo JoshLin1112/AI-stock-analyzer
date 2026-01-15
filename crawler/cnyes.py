@@ -61,10 +61,10 @@ class CNYESCrawler:
 
     def crawl(self):
         """執行爬蟲，將結果存入 self.data"""
-        logger.info("🚀 執行鉅亨網新聞爬蟲...")
+        logger.info("執行鉅亨網新聞爬蟲...")
         for page in range(1, self.max_page + 1):
             items = self._fetch_page(page=page, limit=30)
-            logger.info(f"總新聞數: {items['total']} 筆  每頁: {items['per_page']} 筆  當前頁: {items['current_page']} 頁")
+            logger.info(f"鉅亨網總新聞數: {items['total']} 筆  當前頁: {items['current_page']} 頁")
 
             for news in items["data"]:
                 # 解析新聞時間 → 強制使用台灣時區
@@ -97,7 +97,7 @@ class CNYESCrawler:
             os.makedirs(output_dir)
 
         filtered_df.to_csv(self.output_path, index=False, encoding='utf-8-sig')
-        logger.info(f"✅ 資料儲存至 {self.output_path}")
+        logger.info(f"資料儲存至 {self.output_path}")
 
     def run(self):
         """完整流程：爬蟲 → 存檔"""

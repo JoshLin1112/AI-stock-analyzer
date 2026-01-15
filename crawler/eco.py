@@ -113,10 +113,10 @@ class ECOCrawler:
 
     def crawl(self):
         """執行爬蟲，將結果存入 self.data"""
-        logger.info("🚀 執行經濟日報新聞爬蟲...")
+        logger.info("執行經濟日報新聞爬蟲...")
         soup = self._fetch_list_page()
         links = self._fetch_links_from_soup(soup)
-        logger.info(f"抓到 {len(links)} 篇候選文章（未過濾）")
+        logger.info(f"經濟日報共 {len(links)} 篇候選文章（未過濾）")
 
         filtered_links = self._filter_links_by_time(links)
         logger.info(f"過濾後剩下 {len(filtered_links)} 篇")
@@ -144,7 +144,7 @@ class ECOCrawler:
             os.makedirs(output_dir)
 
         df.to_csv(self.output_path, index=False, encoding="utf-8-sig")
-        logger.info(f"✅ 資料儲存至 {self.output_path}")
+        logger.info(f"資料儲存至 {self.output_path}")
 
     def run(self):
         self.crawl()

@@ -53,13 +53,6 @@ class CTEECrawler:
         if hasattr(self, 'playwright'):
             await self.playwright.stop()
             
-    # def parse_news_datetime(self, date_time_str):
-    #     """解析新聞時間格式 , ex:'2025.08.22 14:00'"""
-    #     try:
-    #         return datetime.strptime(date_time_str.strip(), '%Y.%m.%d %H:%M')
-    #     except ValueError as e:
-    #         logger.warning(f"[警告] 時間格式解析失敗: {date_time_str}, 錯誤: {e}")
-    #         return None
 # from datetime import datetime
     from zoneinfo import ZoneInfo
 
@@ -124,7 +117,7 @@ class CTEECrawler:
                 
     async def load_news_list(self):
         """載入新聞列表頁面"""
-        logger.info("🚀 執行工商時報新聞爬蟲...")
+        logger.info("執行工商時報新聞爬蟲...")
         await self.page.goto("https://www.ctee.com.tw/stock/twmarket", timeout=60000)
         
         # 第一次抓取
@@ -141,7 +134,7 @@ class CTEECrawler:
                     await load_more_btn.click()
                     await self.page.wait_for_timeout(2000)  # 等待新聞載入
                     await self.scrape_current_page()
-                    logger.info(f"✅ 已完成第 {i+1} 次載入，累積 {len(self.all_links)} 則新聞")
+                    logger.info(f"已完成第 {i+1} 次載入，工商時報累積 {len(self.all_links)} 則新聞")
                 else:
                     logger.warning("⚠️ 找不到『載入更多』按鈕，提前結束")
                     break
@@ -156,7 +149,7 @@ class CTEECrawler:
         
         try:
             await self.page.goto(full_url, timeout=30000, wait_until="domcontentloaded")
-            logger.info(f"✅ 已進入 {full_url}")
+            logger.info(f"已進入新聞頁面 {full_url}")
             
             # 抓取標題
             title_el = await self.page.query_selector("h1.main-title")
@@ -177,12 +170,12 @@ class CTEECrawler:
             print(news_datetime)
             # 如果時間早於開始時間，停止爬取
             if self.should_stop_scraping(news_datetime):
-                logger.info(f"⏹️ 新聞時間 {datetime_str} 早於開始時間 {self.start_time}，停止爬取")
+                logger.info(f"新聞時間 {datetime_str} 早於開始時間 {self.start_time}，停止爬取")
                 return False
             
             # 如果時間不在範圍內，跳過這篇文章
             if self.should_skip_article(news_datetime):
-                logger.info(f"⏭️ 新聞時間 {datetime_str} 不在指定範圍內，跳過該文章")
+                logger.info(f"新聞時間 {datetime_str} 不在指定範圍內，跳過該文章")
                 return True
             
             # 抓取內容
@@ -207,16 +200,16 @@ class CTEECrawler:
             
     async def scrape_all_articles(self):
         """爬取所有文章內容"""
-        logger.info(f"📰 開始爬取 {len(self.all_links)} 則新聞內容...")
-        logger.info(f"⏰ 時間範圍: {self.start_time} 至 {self.end_time}")
+        logger.info(f"開始爬取工商時報 {len(self.all_links)} 則新聞內容...")
+        # logger.info(f"時間範圍: {self.start_time} 至 {self.end_time}")
         
         for i, item in enumerate(self.all_links, 1):
-            logger.info(f"📄 處理第 {i}/{len(self.all_links)} 篇新聞")
+            logger.info(f"處理工商時報第 {i}/{len(self.all_links)} 篇新聞")
             
             # 如果返回 False，表示應該停止爬取
             should_continue = await self.scrape_article_content(item)
             if not should_continue:
-                logger.info(f"🛑 已停止爬取，共處理了 {len(self.results)} 篇新聞")
+                logger.info(f"已停止爬取，共處理了 {len(self.results)} 篇新聞")
                 break
                 
     def save_to_csv(self):
@@ -232,19 +225,18 @@ class CTEECrawler:
             os.makedirs(output_dir)
             
         df.to_csv(self.output_path, index=False, encoding='utf-8-sig')
-        logger.info(f"✅ 資料儲存至 {self.output_path}")
+        logger.info(f"資料儲存至 {self.output_path}")
         
     async def run(self):
         """執行完整的爬蟲流程"""
         try:
-            # logger.info("🚀 開始執行新聞爬蟲...")
             
             # 初始化瀏覽器
             await self.init_browser()
             
             # 載入新聞列表
             await self.load_news_list()
-            logger.info(f"📋 共找到 {len(self.all_links)} 則新聞連結")
+            logger.info(f"共找到 {len(self.all_links)} 則新聞連結")
             
             # 爬取文章內容
             await self.scrape_all_articles()
@@ -256,7 +248,7 @@ class CTEECrawler:
             logger.error(f"[嚴重錯誤] {e}")
         finally:
             await self.close_browser()
-            logger.info("🔚 爬蟲執行完成")
+            logger.info("爬蟲執行完成")
 
 
 async def main():

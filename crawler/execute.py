@@ -53,7 +53,7 @@ class MultiCrawlerManager:
         CTEE is asynchronous, so it is awaited directly.
         """
         logger.info("=== Starting Multi-Crawler Execution ===")
-        logger.info(f"Time Window: {self.start_time} ~ {self.end_time}")
+        logger.info(f"時間範圍: {self.start_time} ~ {self.end_time}")
 
         async def run_sync_crawler(crawler):
             await asyncio.to_thread(crawler.run)
@@ -75,15 +75,15 @@ class MultiCrawlerManager:
 
     def check_output_files(self):
         """Check if output files exist and log their status."""
-        logger.info("\n=== Checking Output Files ===")
+        logger.info("=== Checking Output Files ===")
         crawlers = [self.cnyes, self.eco, self.ctee]
         for crawler in crawlers:
             file_path = crawler.output_path
             if os.path.exists(file_path):
                 size = os.path.getsize(file_path)
-                logger.info(f"✓ {os.path.basename(file_path)} exists ({size} bytes)")
+                logger.info(f"資料路徑大小:{os.path.basename(file_path)} exists ({(round(size/1024, 2))} KB)")
             else:
-                logger.warning(f"✗ {os.path.basename(file_path)} NOT found")
+                logger.warning(f"{os.path.basename(file_path)} NOT found")
 
 if __name__ == "__main__":
     from utils.logger import setup_logger

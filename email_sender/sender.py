@@ -132,7 +132,7 @@ def send_email(
             server.starttls()
             server.login(sender_email, password)
             server.send_message(msg)
-        logger.info(f"📧 成功發送報告至 {', '.join(receiver_email)}")
+        logger.info(f"成功發送報告至 {', '.join(receiver_email)} !")
         return True
     except Exception as e:
         print(f"⚠️ 發送失敗: {e}")
