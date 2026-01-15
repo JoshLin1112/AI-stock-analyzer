@@ -24,7 +24,7 @@ class OllamaService:
             self._pull_model()
             return
         except Exception:
-            logger.info("未偵測到 Ollama 伺服器，嘗試啟動 ollama...")
+            logger.info("未偵測到 Ollama 伺服器，啟動 Ollama")
 
         # 背景啟動 serve（不阻塞）
         try:

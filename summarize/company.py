@@ -2,7 +2,8 @@ import logging
 import pandas as pd
 import re
 import ollama
-from typing import Dict, List, Optional
+import concurrent.futures
+from typing import Dict, List, Optional, Tuple
 from config import Config
 from prompts import Prompts
 from summarize.validator import SummaryValidator
@@ -137,44 +138,44 @@ class CompanyAnalyzer:
         return " \\n ".join(combined_content)
     
     def add_company_summary(self, company_stats: pd.DataFrame) -> pd.DataFrame:
-        """為每間公司的整合新聞內容生成總結"""
+        """為每間公司的整合新聞內容生成總結 (平行化)"""
         if company_stats.empty:
             return company_stats
 
-        logger.info("正在為各公司生成整合總結...")
-        company_summaries = []
+        logger.info("正在平行為各公司生成整合總結...")
         
-        for idx, row in company_stats.iterrows():
-            company_name = row['company']
-            whole_content = row['whole_news_content']
-            
-            summary_prompt = Prompts.COMPANY_SUMMARY.format(
-                company_name=company_name,
-                whole_content=whole_content
-            )
-            
-            try:
-                response = ollama.chat(
-                    model=self.ollama_model,
-                    messages=[{"role": "user", "content": summary_prompt}]
-                )
-                company_summary = response['message']['content'].strip()
-                
-                # 驗證機制
-                is_valid = self.validator.validate(company_summary, company_name)
-                if not is_valid:
-                    company_summary = None # 標記為無效
-                
-            except Exception as e:
-                logger.error(f"生成公司總結失敗: {e}")
-                company_summary = None
-
-            company_summaries.append(company_summary)
-            
-            if (idx + 1) % 5 == 0:
-                logger.info(f"公司總結進度: [{idx + 1}/{len(company_stats)}]")
+        results = {}
+        total = len(company_stats)
+        completed = 0
         
-        company_stats['company_summary'] = company_summaries
+        # 建立索引對應表 (因為 groupby 後的 index 可能不連續)
+        idx_list = list(company_stats.index)
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=Config.MAX_WORKERS) as executor:
+            future_to_idx = {
+                executor.submit(
+                    self._generate_single_company_summary, 
+                    row['company'], 
+                    row['whole_news_content']
+                ): idx 
+                for idx, row in company_stats.iterrows()
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    summary = future.result()
+                    results[idx] = summary
+                except Exception as e:
+                    logger.error(f"公司 {idx} 總結生成失敗: {e}")
+                    results[idx] = None
+                
+                completed += 1
+                if completed % 5 == 0:
+                    logger.info(f"公司總結進度: [{completed}/{total}]")
+        
+        # 填回結果
+        company_stats['company_summary'] = company_stats.index.map(lambda x: results.get(x))
         
         # 排除無效資料 (刪除 company_summary 為 None 的行)
         original_count = len(company_stats)
@@ -186,3 +187,28 @@ class CompanyAnalyzer:
 
         logger.info("公司總結完成")
         return company_stats
+    
+    def _generate_single_company_summary(self, company_name: str, whole_content: str) -> Optional[str]:
+        """生成單一公司的總結"""
+        summary_prompt = Prompts.COMPANY_SUMMARY.format(
+            company_name=company_name,
+            whole_content=whole_content
+        )
+        
+        try:
+            response = ollama.chat(
+                model=self.ollama_model,
+                messages=[{"role": "user", "content": summary_prompt}]
+            )
+            company_summary = response['message']['content'].strip()
+            
+            # 驗證機制
+            is_valid = self.validator.validate(company_summary, company_name)
+            if not is_valid:
+                return None
+            
+            return company_summary
+        except Exception as e:
+            logger.error(f"生成公司總結失敗 ({company_name}): {e}")
+            return None
+
