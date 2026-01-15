@@ -31,4 +31,4 @@ def get_taipei_time_window():
         # Start from Yesterday 14:00
         start = (now - timedelta(days=1)).replace(hour=14, minute=0, second=0, microsecond=0)
         
-    return start, now
+    return start, now.replace(hour=8, minute=0, second=0, microsecond=0)

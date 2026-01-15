@@ -4,14 +4,9 @@ __pycache__/
 *.pyo
 *.pyd
 
-# ===== Virtual Env =====
-.venv/
-venv/
-env/
 
 # ===== Environment Variables =====
 .env
-.env.*
 
 # ===== Logs =====
 *.log
@@ -19,10 +14,6 @@ env/
 # ===== Jupyter =====
 .ipynb_checkpoints/
 
-# ===== Node / Frontend =====
-node_modules/
-dist/
-build/
 
 # ===== OS =====
 .DS_Store
@@ -32,8 +23,8 @@ Thumbs.db
 .vscode/
 .idea/
 
-# ===== LLM / ML =====
-models/
-checkpoints/
-wandb/
-mlruns/
+# ===== TEST FILE =====
+test_analysis.py
+test_sentiment_logic.py
+test_time_series_logic.py
+

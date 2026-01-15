@@ -1,7 +1,9 @@
 import pandas as pd
 import ollama
 import logging
+from typing import List, Optional
 from config import Config
+from prompts import Prompts
 
 logger = logging.getLogger("StockNewsCrawler")
 
@@ -11,7 +13,7 @@ class NewsSummarizer:
     def __init__(self):
         self.ollama_model = Config.OLLAMA_MODEL
 
-    def load_news_data(self, file_paths):
+    def load_news_data(self, file_paths: List[str]) -> pd.DataFrame:
         """載入新聞數據"""
         logger.info("正在載入新聞數據...")
         all_news_df = pd.DataFrame()
@@ -28,17 +30,9 @@ class NewsSummarizer:
         logger.info(f"總共載入 {len(all_news_df)} 篇新聞")
         return all_news_df
     
-    def generate_summary(self, title, content):
+    def generate_summary(self, title: str, content: str) -> str:
         """生成新聞摘要"""
-        prompt = f"""
-        你是一位財經新聞摘要助手。請閱讀以下新聞，並用繁體中文寫出不超過四句話的總結，並遵守以下規範：
-        1. 直接產出總結內容，不需要說明或引言。
-        2. 總結內容請聚焦於投資相關資訊，並強調新聞中提及的股票公司。
-        3. 於總結最後條列出這個新聞報導的所有股票公司，格式範例如下 :「新聞提及公司:台積電(2330)、鴻海(2317)」，並使用「、」隔開公司。若無提及公司則不需列出。
-
-        標題：{title}
-        內文：{content}
-        """
+        prompt = Prompts.NEWS_SUMMARY.format(title=title, content=content)
         
         try:
             response = ollama.chat(
@@ -50,7 +44,7 @@ class NewsSummarizer:
             logger.error(f"生成摘要失敗: {e}")
             return ""
     
-    def process_summaries(self, df):
+    def process_summaries(self, df: pd.DataFrame) -> pd.DataFrame:
         """批量處理摘要生成"""
         logger.info("正在生成摘要...")
         summaries = []

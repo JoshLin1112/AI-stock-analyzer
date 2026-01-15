@@ -5,20 +5,29 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # Ollama Settings
+    # --- Ollama Settings ---
     OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b")
     
-    # Email Settings
+    # --- Email Settings ---
     EMAIL_SENDER = os.getenv("EMAIL_SENDER")
     EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
     # Receivers can be a comma-separated string in .env
     EMAIL_RECEIVERS_STR = os.getenv("EMAIL_RECEIVERS", "")
     EMAIL_RECEIVERS = [email.strip() for email in EMAIL_RECEIVERS_STR.split(",") if email.strip()]
 
-    # Paths
+    # --- Paths ---
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     NEWS_OUTPUT_DIR = os.path.join(BASE_DIR, "news")
     STATS_OUTPUT_PATH = os.path.join(BASE_DIR, "company_sentiment_stats.csv")
+    SENTIMENT_HISTORY_PATH = os.path.join(BASE_DIR, "sentiment_history.csv")
+    COMPANY_CODES_PATH = os.path.join(BASE_DIR, "summarize", "company_codes.csv")
+
+    # --- Processing Settings ---
+    MAX_WORKERS = 5  # Thread pool size for parallel processing
+
+    # --- Weights for Scoring ---
+    WEIGHT_AI = 0.6
+    WEIGHT_FINBERT = 0.4
 
     # Validate critical config
     @classmethod

@@ -1,8 +1,11 @@
+import logging
 import pandas as pd
 import re
 import ollama
-import logging
+from typing import Dict, List, Optional
 from config import Config
+from prompts import Prompts
+from summarize.validator import SummaryValidator
 
 logger = logging.getLogger("StockNewsCrawler")
 
@@ -11,6 +14,20 @@ class CompanyAnalyzer:
     
     def __init__(self):
         self.ollama_model = Config.OLLAMA_MODEL
+        self.name2code = self._load_company_codes()
+        self.validator = SummaryValidator()
+
+    def _load_company_codes(self) -> Dict[str, str]:
+        """載入公司代號對照表"""
+        try:
+            company_df = pd.read_csv(Config.COMPANY_CODES_PATH, dtype=str)
+            return dict(zip(company_df["company_name"], company_df["stock_code"]))
+        except FileNotFoundError:
+            logger.error(f"找不到 {Config.COMPANY_CODES_PATH}，無法進行公司代號驗證。")
+            return {}
+        except Exception as e:
+            logger.error(f"讀取公司代號表失敗: {e}")
+            return {}
 
     @staticmethod
     def normalize_company_name(company_name: str) -> str:
@@ -21,17 +38,12 @@ class CompanyAnalyzer:
                     .replace(',', '')
                     .replace('　', '')
                     .replace(' ', '')
+                    .replace('-TW', '')
         )
     
-    @staticmethod
-    def extract_companies_from_text(text):
+    def extract_companies_from_text(self, text: str) -> List[str]:
         """從文本中提取公司資訊，僅保留正確代號"""
-        # 建立字典 {公司名稱: 正確代號}
-        try:
-            company_df = pd.read_csv("summarize/company_codes.csv", dtype=str)
-            NAME2CODE = dict(zip(company_df["company_name"], company_df["stock_code"]))
-        except FileNotFoundError:
-            logger.error("找不到 summarize/company_codes.csv，無法進行公司代號驗證。")
+        if not self.name2code:
             return []
 
         companies = []
@@ -44,30 +56,17 @@ class CompanyAnalyzer:
             matches = re.findall(company_pattern, company_text)
 
             for company_name, stock_code in matches:
-                company_name = CompanyAnalyzer.normalize_company_name(company_name)
+                company_name = self.normalize_company_name(company_name)
 
                 # 如果公司名稱存在於對照表
-                if company_name in NAME2CODE:
-                    correct_code = NAME2CODE[company_name]
-
+                if company_name in self.name2code:
+                    correct_code = self.name2code[company_name]
                     # 代號符合對照表 → 保留
                     if stock_code == correct_code:
                         companies.append(f"{company_name}({stock_code})")
-                    # 代號不符 → 丟掉，不加入
         return companies
-
     
-    @staticmethod
-    def label_to_score(label, label_type='ai'):
-        """將標籤轉換為數值分數"""
-        if label_type == 'ai':
-            mapping = {'正面': 1, '中性': 0, '負面': -1}
-        else:  # finbert
-            mapping = {'positive': 1, 'neutral': 0, 'negative': -1}
-        
-        return mapping.get(label, 0)
-    
-    def expand_news_by_company(self, df):
+    def expand_news_by_company(self, df: pd.DataFrame) -> pd.DataFrame:
         """展開新聞數據，每個公司一行"""
         logger.info("正在展開新聞數據...")
         expanded_data = []
@@ -92,7 +91,7 @@ class CompanyAnalyzer:
         logger.info(f"展開後數據行數: {len(expanded_df)}筆")
         return expanded_df
     
-    def calculate_company_sentiment_stats(self, expanded_df, w_ai=0.6, w_finbert=0.4):
+    def calculate_company_sentiment_stats(self, expanded_df: pd.DataFrame) -> pd.DataFrame:
         """計算公司情緒統計"""
         logger.info("正在計算公司情緒統計...")
         
@@ -105,18 +104,13 @@ class CompanyAnalyzer:
         if valid_df.empty:
             return pd.DataFrame()
 
-        # 轉換標籤為數值分數
-        valid_df['ai_score'] = valid_df['ai_label'].apply(
-            lambda x: self.label_to_score(x, 'ai')
-        )
-        valid_df['finbert_score'] = valid_df['finbert_label'].apply(
-            lambda x: self.label_to_score(x, 'finbert')
-        )
-        
-        # 計算加權情緒分數
-        valid_df['weighted_score'] = (
-            w_ai * valid_df['ai_score'] + w_finbert * valid_df['finbert_score']
-        )
+        # 這裡假設已經有 final_score，因為 sentiment analyzer 已經計算了
+        if 'final_score' in valid_df.columns:
+            valid_df['weighted_score'] = valid_df['final_score'].astype(float)
+        else:
+             # Just in case fallback
+            logger.warning("未自 Dataframe 找到 final_score，使用預設值 0.5")
+            valid_df['weighted_score'] = 0.5
         
         # 按公司分組統計
         company_stats = valid_df.groupby('company').agg(
@@ -132,18 +126,17 @@ class CompanyAnalyzer:
         return company_stats
     
     @staticmethod
-    def _combine_news_content(summaries):
+    def _combine_news_content(summaries: pd.Series) -> str:
         """將多則新聞摘要整合成一段文字"""
-        combined_content = ""
+        combined_content = []
         for i, summary in enumerate(summaries, 1):
             # 移除新聞提及公司的部分，只保留摘要內容
             content = summary.split("新聞提及公司")[0].strip()
-            combined_content += f"第{i}則新聞:{content} \\n "
+            combined_content.append(f"第{i}則新聞:{content}")
         
-        # 移除最後的空格和換行符
-        return combined_content.rstrip(" \\n ")
+        return " \\n ".join(combined_content)
     
-    def add_company_summary(self, company_stats):
+    def add_company_summary(self, company_stats: pd.DataFrame) -> pd.DataFrame:
         """為每間公司的整合新聞內容生成總結"""
         if company_stats.empty:
             return company_stats
@@ -155,16 +148,10 @@ class CompanyAnalyzer:
             company_name = row['company']
             whole_content = row['whole_news_content']
             
-            summary_prompt = f"""
-            你是一位財經新聞總結助手。請閱讀以下關於{company_name}公司的多則新聞摘要，並用繁體中文寫出一份綜合總結，並遵守以下規範：
-            1. 直接產出總結內容，不需要說明或引言。
-            2. 綜合分析這家公司的整體狀況，包含正面和負面資訊。
-            3. 總結長度控制在6句話以內。
-            4. 重點關注對投資決策有用的資訊。
-
-            公司：{company_name}
-            相關新聞摘要：{whole_content}
-            """
+            summary_prompt = Prompts.COMPANY_SUMMARY.format(
+                company_name=company_name,
+                whole_content=whole_content
+            )
             
             try:
                 response = ollama.chat(
@@ -172,9 +159,15 @@ class CompanyAnalyzer:
                     messages=[{"role": "user", "content": summary_prompt}]
                 )
                 company_summary = response['message']['content'].strip()
+                
+                # 驗證機制
+                is_valid = self.validator.validate(company_summary, company_name)
+                if not is_valid:
+                    company_summary = None # 標記為無效
+                
             except Exception as e:
                 logger.error(f"生成公司總結失敗: {e}")
-                company_summary = "無法生成總結"
+                company_summary = None
 
             company_summaries.append(company_summary)
             
@@ -182,5 +175,14 @@ class CompanyAnalyzer:
                 logger.info(f"公司總結進度: [{idx + 1}/{len(company_stats)}]")
         
         company_stats['company_summary'] = company_summaries
+        
+        # 排除無效資料 (刪除 company_summary 為 None 的行)
+        original_count = len(company_stats)
+        company_stats = company_stats.dropna(subset=['company_summary'])
+        filtered_count = len(company_stats)
+        
+        if original_count != filtered_count:
+            logger.info(f"已排除 {original_count - filtered_count} 筆無效或格式錯誤的總結")
+
         logger.info("公司總結完成")
         return company_stats

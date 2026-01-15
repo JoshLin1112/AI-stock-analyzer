@@ -144,19 +144,21 @@ if __name__ == "__main__":
     import os
     from dotenv import load_dotenv
     load_dotenv()
-    
+
     sender = os.getenv("EMAIL_SENDER")
     pwd = os.getenv("EMAIL_PASSWORD")
-    receiver = os.getenv("EMAIL_RECEIVERS")
-    
+    receiver = os.getenv("EMAIL_RECEIVERS").split(',')
+    print(f"Sender: {sender}, Receiver: {receiver}", f'pwd:{pwd}')
+
     if sender and pwd and receiver:
         send_email(
             attachments=["company_sentiment_stats.csv"],
-            subject="測試 - 每日財經新聞情緒統計",
-            body="這是一封測試郵件。",
+            subject="每日財經新聞情緒統計",
+            body="附件與下表為今日新聞情緒統計。",
             sender_email=sender,
-            receiver_email=receiver.split(",")[0], # Test with first receiver
+            receiver_email=receiver, # Test with first receiver
             password=pwd
         )
     else:
         print("未設定環境變數，跳過測試發信。")
+        
